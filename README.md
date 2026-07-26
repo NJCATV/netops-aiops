@@ -37,7 +37,7 @@ Default Web port:
 https://172.31.1.233:5772/2026/legacy-aiops/
 ```
 
-该页面使用网管 JWT，经 `/wx/api/netops2026/aiops/*` BFF 访问 AIOps。AIOps 本地注册、密码登录和 Session 兜底已移除；20 服务器的 5772 只绑定 `127.0.0.1`，不得作为用户入口。
+该页面使用网管 JWT，经 `/api/netops2026/aiops/*` BFF 访问 AIOps。AIOps 本地注册、密码登录和 Session 兜底已移除；20 服务器的 5772 只绑定 `127.0.0.1`，不得作为用户入口。
 ```
 
 The Web console supports login/register, realtime Syslog, Trap, alarm event review, manual AI analysis, AI history and findings, operator feedback, and scheduled AI task configuration.
