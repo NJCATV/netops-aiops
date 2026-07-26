@@ -1,0 +1,56 @@
+version: 1
+event_types:
+  PPP_AUTH_FAILURE:
+    event_mode: statistical
+    event_family: ppp_auth
+    window_minutes: 5
+    user_focus_threshold: 3
+    group_by:
+      - device_ip
+      - domain
+  PTP_CLOCK_JITTER:
+    event_mode: lifecycle
+    event_family: ptp_clock
+    window_minutes: 5
+    group_by:
+      - device_ip
+      - slot
+  BFD_FLAP:
+    event_mode: lifecycle
+    event_family: bfd_flap
+    window_minutes: 5
+    group_by:
+      - device_ip
+      - session_id
+      - linktype
+      - diag
+  OPTICAL_FAULT:
+    event_mode: lifecycle
+    event_family: optical_fault
+    window_minutes: 10
+    group_by:
+      - device_ip
+      - interface
+      - error_code
+  RADIUS_SERVER_ABNORMAL:
+    event_mode: lifecycle
+    event_family: radius
+    window_minutes: 5
+    group_by:
+      - device_ip
+      - radius_server
+      - server_ip
+  INTERFACE_LINK:
+    event_mode: lifecycle
+    event_family: interface_link
+    window_minutes: 5
+    group_by:
+      - device_ip
+      - interface
+  QOS_CONGESTION:
+    event_mode: statistical
+    event_family: qos_congestion
+    window_minutes: 5
+    group_by:
+      - slot
+      - queue_id

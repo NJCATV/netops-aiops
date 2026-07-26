@@ -1,0 +1,55 @@
+# Environment and secrets
+.env
+*.pem
+*.key
+id_rsa
+id_ed25519
+deploy/.env
+deploy/*.bak.*
+
+# Runtime data
+data/
+故障知识库/
+outputs/
+reports/*
+!reports/task7/
+!reports/task7/**
+!reports/task8/
+!reports/task8/**
+!reports/task8_1/
+!reports/task8_1/**
+!reports/task9/
+!reports/task9/**
+!reports/task10/
+!reports/task10/**
+!reports/task12/
+!reports/task12/**
+!reports/task13/
+!reports/task13/**
+backups/
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+tmp/
+temp/

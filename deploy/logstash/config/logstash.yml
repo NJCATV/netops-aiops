@@ -1,0 +1,7 @@
+http.host: "0.0.0.0"
+config.reload.automatic: true
+config.reload.interval: 10s
+pipeline.ecs_compatibility: disabled
+xpack.monitoring.enabled: false
+queue.type: persisted
+path.queue: /usr/share/logstash/data/queue

@@ -1,0 +1,21 @@
+[Unit]
+Description=JSCN AIOps API (application plane)
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yvesyuan
+Group=yvesyuan
+WorkingDirectory=/opt/jscn-aiops
+EnvironmentFile=/etc/jscn-aiops/app.env
+ExecStart=/opt/jscn-aiops/.venv/bin/gunicorn -b 172.25.60.233:18080 -w 3 --threads 2 --timeout 150 --access-logfile - --error-logfile - app.wsgi:app
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/data/jscn-aiops
+
+[Install]
+WantedBy=multi-user.target

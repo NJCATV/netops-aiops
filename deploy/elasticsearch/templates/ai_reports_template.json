@@ -1,0 +1,31 @@
+{
+  "index_patterns": ["jscn-aiops-ai-reports-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": {"type": "date"},
+        "report_id": {"type": "keyword"},
+        "title": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
+        "status": {"type": "keyword"},
+        "model": {"type": "keyword"},
+        "ai_api_base": {"type": "keyword"},
+        "context_path": {"type": "keyword"},
+        "report_path": {"type": "keyword"},
+        "window_start": {"type": "date"},
+        "window_end": {"type": "date"},
+        "hours": {"type": "integer"},
+        "baseline_days": {"type": "integer"},
+        "markdown": {"type": "text"},
+        "context_summary": {"type": "flattened"},
+        "created_at": {"type": "date"},
+        "updated_at": {"type": "date"},
+        "error_message": {"type": "text"}
+      }
+    }
+  }
+}

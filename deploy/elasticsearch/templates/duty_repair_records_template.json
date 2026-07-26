@@ -1,0 +1,63 @@
+{
+  "index_patterns": [
+    "jscn-aiops-duty-repair-records-*"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "record_id": { "type": "keyword" },
+        "source_type": { "type": "keyword" },
+        "source_file": { "type": "keyword" },
+        "source_path": { "type": "keyword" },
+        "source_sheet": { "type": "keyword" },
+        "source_row": { "type": "long" },
+        "source_seq": { "type": "keyword" },
+        "occurred_date": { "type": "date", "format": "strict_date_optional_time||yyyy-MM-dd" },
+        "occurred_time": { "type": "date" },
+        "recovery_time": { "type": "date" },
+        "fault_category": { "type": "keyword" },
+        "report_type": { "type": "keyword" },
+        "fault_type": { "type": "keyword" },
+        "service": { "type": "keyword" },
+        "area": { "type": "keyword" },
+        "province_support_required": { "type": "boolean" },
+        "same_day_recovered": { "type": "keyword" },
+        "first_receiver": { "type": "keyword" },
+        "followup_handlers": { "type": "keyword" },
+        "canonical_symptom": { "type": "keyword" },
+        "canonical_symptom_label": { "type": "keyword" },
+        "normalized_actions": { "type": "keyword" },
+        "noise_reasons": { "type": "keyword" },
+        "knowledge_value": { "type": "keyword" },
+        "knowledge_score": { "type": "float" },
+        "aggregation_key": { "type": "keyword" },
+        "embedding_candidate": { "type": "boolean" },
+        "embedding_status": { "type": "keyword" },
+        "embedding_model": { "type": "keyword" },
+        "fault_content": {
+          "type": "text",
+          "fields": {
+            "keyword": { "type": "keyword", "ignore_above": 512 }
+          }
+        },
+        "handling_result": {
+          "type": "text",
+          "fields": {
+            "keyword": { "type": "keyword", "ignore_above": 512 }
+          }
+        },
+        "embedding_text": { "type": "text" },
+        "remark": { "type": "text" },
+        "raw_row": { "type": "object", "enabled": true },
+        "created_at": { "type": "date" },
+        "updated_at": { "type": "date" }
+      }
+    }
+  }
+}

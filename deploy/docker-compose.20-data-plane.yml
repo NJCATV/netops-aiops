@@ -1,0 +1,124 @@
+version: "3.7"
+
+# JSCN-20: ingestion and event-processing data plane only.
+# API, scheduler and MySQL intentionally live on JSCN-233.
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-7.17.27}
+    container_name: ${AIOPS_PROJECT_NAME:-jscn-aiops}-elasticsearch
+    restart: unless-stopped
+    environment:
+      - node.name=${AIOPS_PROJECT_NAME:-jscn-aiops}-es01
+      - cluster.name=${AIOPS_PROJECT_NAME:-jscn-aiops}-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS:--Xms2g -Xmx2g}
+      - TZ=${AIOPS_TIMEZONE:-Asia/Shanghai}
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65535, hard: 65535 }
+    volumes:
+      - ${AIOPS_ES_DATA_DIR:-/data/jscn-aiops/es}:/usr/share/elasticsearch/data
+    ports:
+      - "${ELASTICSEARCH_BIND_IP:-172.25.60.20}:${ELASTICSEARCH_HTTP_PORT:-9200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    networks: [aiops-data]
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-7.17.27}
+    container_name: ${AIOPS_PROJECT_NAME:-jscn-aiops}-kibana
+    restart: unless-stopped
+    depends_on: [elasticsearch]
+    environment:
+      - SERVER_NAME=${AIOPS_PROJECT_NAME:-jscn-aiops}-kibana
+      - SERVER_HOST=0.0.0.0
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+      - I18N_LOCALE=zh-CN
+      - TZ=${AIOPS_TIMEZONE:-Asia/Shanghai}
+    ports:
+      - "${KIBANA_BIND_IP:-127.0.0.1}:${KIBANA_HTTP_PORT:-5601}:5601"
+    networks: [aiops-data]
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION:-7.17.27}
+    container_name: ${AIOPS_PROJECT_NAME:-jscn-aiops}-logstash
+    restart: unless-stopped
+    depends_on: [elasticsearch]
+    environment:
+      - TZ=${AIOPS_TIMEZONE:-Asia/Shanghai}
+      - LS_JAVA_OPTS=${LOGSTASH_JAVA_OPTS:--Xms1g -Xmx1g}
+      - AIOPS_TIMEZONE=${AIOPS_TIMEZONE:-Asia/Shanghai}
+      - SYSLOG_UDP_PORT=${SYSLOG_UDP_PORT:-10087}
+      - SNMP_TRAP_UDP_PORT=${SNMP_TRAP_UDP_PORT:-10086}
+      - SNMP_TRAP_COMMUNITY=${SNMP_TRAP_COMMUNITY:-public}
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_SYSLOG_RAW_INDEX_PREFIX=${ELASTICSEARCH_SYSLOG_RAW_INDEX_PREFIX:-jscn-aiops-syslog-raw}
+      - ELASTICSEARCH_SYSLOG_PARSED_INDEX_PREFIX=${ELASTICSEARCH_SYSLOG_PARSED_INDEX_PREFIX:-jscn-aiops-syslog-parsed}
+      - ELASTICSEARCH_TRAP_RAW_INDEX_PREFIX=${ELASTICSEARCH_TRAP_RAW_INDEX_PREFIX:-jscn-aiops-trap-raw}
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ${AIOPS_LOGSTASH_MIB_DIR:-/data/jscn-aiops/logstash/mib}:/usr/share/logstash/mib:ro
+      - ${AIOPS_LOGSTASH_DATA_DIR:-/data/jscn-aiops/logstash/data}:/usr/share/logstash/data
+    ports:
+      - "${SYSLOG_UDP_PORT:-10087}:${SYSLOG_UDP_PORT:-10087}/udp"
+      - "${SNMP_TRAP_UDP_PORT:-10086}:${SNMP_TRAP_UDP_PORT:-10086}/udp"
+    networks: [aiops-data]
+
+  aiops-event-worker:
+    image: ${AIOPS_APP_IMAGE:-jscn-aiops-app:split}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${AIOPS_API_PYTHON_BASE_IMAGE:-swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.11-slim}
+    container_name: ${AIOPS_PROJECT_NAME:-jscn-aiops}-event-worker
+    restart: always
+    working_dir: /opt/jscn-aiops
+    env_file: [.env.data-plane]
+    environment:
+      - TZ=${AIOPS_TIMEZONE:-Asia/Shanghai}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    volumes:
+      - ..:/opt/jscn-aiops:ro
+      - /data/jscn-aiops:/data/jscn-aiops
+    depends_on: [elasticsearch, logstash]
+    command: ["python", "scripts/run_event_aggregation_worker.py", "--env-file", "deploy/.env.data-plane"]
+    networks: [aiops-data]
+
+  aiops-qq-adapter:
+    image: ${AIOPS_APP_IMAGE:-jscn-aiops-app:split}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${AIOPS_API_PYTHON_BASE_IMAGE:-swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.11-slim}
+    container_name: ${AIOPS_PROJECT_NAME:-jscn-aiops}-qq-adapter
+    restart: unless-stopped
+    working_dir: /opt/jscn-aiops
+    env_file: [.env.data-plane]
+    environment:
+      - TZ=${AIOPS_TIMEZONE:-Asia/Shanghai}
+      - AIOPS_API_BASE=${AIOPS_API_BASE:-http://172.25.60.233:18080}
+      - ONEBOT_API_BASE=${ONEBOT_API_BASE:-http://host.docker.internal:3000}
+      - NAPCAT_WEBUI_BASE=${NAPCAT_WEBUI_BASE:-http://host.docker.internal:6099}
+      - QQ_ADAPTER_PORT=18088
+    volumes:
+      - ..:/opt/jscn-aiops:ro
+      - /data/jscn-aiops:/data/jscn-aiops
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    command: ["gunicorn", "-b", "0.0.0.0:18088", "-w", "1", "--threads", "8", "--timeout", "30", "aiops.qq_adapter:create_adapter_app()"]
+    ports:
+      - "${QQ_ADAPTER_BIND_IP:-172.25.60.20}:${QQ_ADAPTER_HTTP_PORT:-18088}:18088"
+    networks: [aiops-data]
+
+networks:
+  aiops-data:
+    name: ${AIOPS_PROJECT_NAME:-jscn-aiops}-data
+    driver: bridge

@@ -1,0 +1,9 @@
+Flask==3.0.3
+gunicorn==22.0.0
+SQLAlchemy==2.0.30
+PyMySQL==1.1.1
+cryptography==42.0.8
+python-dotenv==1.0.1
+Werkzeug==3.0.3
+openai==1.82.0
+qrcode[pil]==7.4.2

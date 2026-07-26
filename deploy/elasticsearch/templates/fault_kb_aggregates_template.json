@@ -1,0 +1,45 @@
+{
+  "index_patterns": [
+    "jscn-aiops-fault-topic-aggregates"
+  ],
+  "priority": 200,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "aggregate_id": { "type": "keyword" },
+        "topic_key": { "type": "keyword" },
+        "topic_label": {
+          "type": "text",
+          "fields": {
+            "keyword": { "type": "keyword", "ignore_above": 256 }
+          }
+        },
+        "topic_source": { "type": "keyword" },
+        "canonical_symptom": { "type": "keyword" },
+        "service": { "type": "keyword" },
+        "area": { "type": "keyword" },
+        "total_count": { "type": "long" },
+        "reference_count": { "type": "long" },
+        "aggregate_only_count": { "type": "long" },
+        "formal_count": { "type": "long" },
+        "duty_count": { "type": "long" },
+        "noise_count": { "type": "long" },
+        "embedding_candidate_count": { "type": "long" },
+        "first_seen": { "type": "date" },
+        "last_seen": { "type": "date" },
+        "top_actions": { "type": "keyword" },
+        "top_areas": { "type": "keyword" },
+        "top_report_types": { "type": "keyword" },
+        "representative_cases": { "type": "object", "enabled": true },
+        "suggested_query": { "type": "text" },
+        "updated_at": { "type": "date" }
+      }
+    }
+  }
+}

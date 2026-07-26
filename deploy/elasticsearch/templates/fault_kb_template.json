@@ -1,0 +1,54 @@
+{
+  "index_patterns": [
+    "jscn-aiops-fault-kb-*"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "record_id": { "type": "keyword" },
+        "source_type": { "type": "keyword" },
+        "source_file": { "type": "keyword" },
+        "source_path": { "type": "keyword" },
+        "source_sheet": { "type": "keyword" },
+        "source_row": { "type": "long" },
+        "occurred_date": { "type": "date", "format": "strict_date_optional_time||yyyy-MM-dd" },
+        "occurred_time": { "type": "date" },
+        "title": {
+          "type": "text",
+          "fields": {
+            "keyword": { "type": "keyword", "ignore_above": 512 }
+          }
+        },
+        "service": { "type": "keyword" },
+        "area": { "type": "keyword" },
+        "canonical_symptom": { "type": "keyword" },
+        "canonical_symptom_label": { "type": "keyword" },
+        "normalized_actions": { "type": "keyword" },
+        "knowledge_value": { "type": "keyword" },
+        "knowledge_score": { "type": "float" },
+        "aggregation_key": { "type": "keyword" },
+        "embedding_candidate": { "type": "boolean" },
+        "embedding_status": { "type": "keyword" },
+        "embedding_model": { "type": "keyword" },
+        "fault_content": { "type": "text" },
+        "impact_scope": { "type": "text" },
+        "root_cause": { "type": "text" },
+        "investigation_steps": { "type": "text" },
+        "fix_method": { "type": "text" },
+        "prevention": { "type": "text" },
+        "report_file": { "type": "keyword" },
+        "report_text": { "type": "text" },
+        "embedding_text": { "type": "text" },
+        "raw_row": { "type": "object", "enabled": true },
+        "created_at": { "type": "date" },
+        "updated_at": { "type": "date" }
+      }
+    }
+  }
+}

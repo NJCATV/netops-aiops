@@ -1,0 +1,37 @@
+{
+  "index_patterns": [
+    "jscn-aiops-alarm-events-*"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "event_id": { "type": "keyword" },
+        "fingerprint": { "type": "keyword" },
+        "event_type": { "type": "keyword" },
+        "event_mode": { "type": "keyword" },
+        "event_family": { "type": "keyword" },
+        "device_ip": { "type": "keyword" },
+        "device_name": { "type": "keyword" },
+        "object_key": { "type": "keyword" },
+        "first_seen": { "type": "date" },
+        "last_seen": { "type": "date" },
+        "duration_seconds": { "type": "long" },
+        "event_count": { "type": "long" },
+        "event_status": { "type": "keyword" },
+        "severity_max": { "type": "keyword" },
+        "aggregation_key": { "type": "keyword" },
+        "event_summary": { "type": "text" },
+        "raw_log_samples": { "type": "text" },
+        "extracted_metrics": { "type": "object", "enabled": true },
+        "created_at": { "type": "date" },
+        "updated_at": { "type": "date" }
+      }
+    }
+  }
+}

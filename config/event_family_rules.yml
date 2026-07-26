@@ -1,0 +1,101 @@
+version: 1
+default_family: unknown
+families:
+  ppp_auth:
+    event_codes:
+      - PPP_CHASTEN
+      - PPP_CHASTEN_PERMAC
+    modules:
+      - PPP
+    keywords:
+      - PPP user
+      - authentication failure
+  ptp_clock:
+    event_codes:
+      - PTP_SYNC_SUPPRESSION
+      - PTP_SYNC_RESUME
+      - PTP_TIMOFFSUM_PK-PK_ALARM
+      - PTP_TIMOFFSUM_PK-PK_RECOVER
+      - PTP_TIME_LOCK
+      - PTP_TIME_NOT_LOCK
+    modules:
+      - PTP
+    keywords:
+      - PTP time
+      - TimeOffset
+  radius:
+    event_codes:
+      - RADIUS_ACCT_SERVER_DOWN
+      - RADIUS_AUTH_SERVER_DOWN
+    modules:
+      - RADIUS
+    keywords:
+      - RADIUS
+      - authentication server
+      - accounting server
+  qos_congestion:
+    event_codes:
+      - QOS_CPUQUE_DROP
+      - OUTPUT_BUFFER_DROP_THRESHOLD
+      - OUTPUT_BUFFER_DROP_RECOVERY
+    modules:
+      - QOS
+      - QoS
+    keywords:
+      - queue
+      - buffer
+      - drop
+  bfd_flap:
+    event_codes:
+      - BFD_CHANGE_FSM
+    modules:
+      - BFD
+    keywords:
+      - BFD
+      - Sta:
+  optical_fault:
+    event_codes:
+      - OPTICAL_WARNING_OCCUR
+      - OPTICAL_WARNING_CLEAR
+      - OPTICAL_ALARM_OCCUR
+      - OPTICAL_ALARM_CLEAR
+      - PHONY_MODULE
+      - OPTMOD_COUNTERFEIT_MODULE
+    modules:
+      - OPTMOD
+      - OPTICAL
+    keywords:
+      - optical
+      - transceiver
+      - module
+  interface_link:
+    event_codes:
+      - LINK_UPDOWN
+      - PHY_UPDOWN
+    modules:
+      - IFNET
+      - LINK
+      - PHY
+    keywords:
+      - Interface
+      - link
+      - state
+  device_fault:
+    event_codes:
+      - BOARD_FATALALARM_OCCUR
+      - DEV_FAULT_TOOLONG
+    modules:
+      - DEV
+      - BOARD
+    keywords:
+      - fatal
+      - fault
+  shell_security:
+    event_codes:
+      - SHELL_CMD_EXECUTEFAIL
+      - SHELL_CMD_MATCHFAIL
+    modules:
+      - SHELL
+    keywords:
+      - command
+      - execute

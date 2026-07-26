@@ -1,0 +1,124 @@
+version: 1
+families:
+  ppp_auth:
+    core_fields:
+      - username
+      - domain
+    patterns:
+      username:
+        - '(?i)user\s+name\s+(?P<username>[A-Za-z0-9._@:-]+)'
+        - '(?i)username[=: ]+(?P<username>[A-Za-z0-9._@:-]+)'
+      domain:
+        - '(?i)domain\s+name\s+(?P<domain>[A-Za-z0-9._-]+)'
+        - '(?i)domain[=: ]+(?P<domain>[A-Za-z0-9._-]+)'
+  ptp_clock:
+    core_fields:
+      - slot
+      - time_offset
+      - threshold
+    patterns:
+      slot:
+        - '(?i)-Slot=(?P<slot>[A-Za-z0-9/._-]+)'
+        - '(?i)\bSlot[=: ]+(?P<slot>[A-Za-z0-9/._-]+)'
+      time_offset:
+        - '(?i)TimeOffset=(?P<time_offset>-?\d+)\s*ns'
+        - '(?i)time offset.*?(?P<time_offset>-?\d+)\s*ns'
+      threshold:
+        - '(?i)TimeOffsetThreshold=(?P<threshold>-?\d+)\s*ns'
+        - '(?i)threshold.*?(?P<threshold>-?\d+)\s*ns'
+      suppression_count:
+        - '(?i)SuppressionCounts=(?P<suppression_count>\d+)'
+        - '(?i)suppression counts?.*?(?P<suppression_count>\d+)'
+  bfd_flap:
+    core_fields:
+      - old_state
+      - new_state
+    patterns:
+      session_id:
+        - '(?i)Sess\[(?P<session_id>[^,\]]+)'
+      old_state:
+        - '(?i)\bSta:\s*(?P<old_state>[A-Z_]+)\s*->\s*(?P<new_state>[A-Z_]+)'
+        - '(?i)state\s+(?:changed\s+)?from\s+(?P<old_state>[A-Z_]+)\s+to\s+(?P<new_state>[A-Z_]+)'
+      new_state:
+        - '(?i)\bSta:\s*(?P<old_state>[A-Z_]+)\s*->\s*(?P<new_state>[A-Z_]+)'
+        - '(?i)state\s+(?:changed\s+)?from\s+(?P<old_state>[A-Z_]+)\s+to\s+(?P<new_state>[A-Z_]+)'
+      diag:
+        - '(?i)\bDiag:\s*(?P<diag>\d+\s*\([^)]+\))'
+        - '(?i)\bDiag(?:nostic)?[=: ]+(?P<diag>[A-Za-z0-9_() -]+)'
+      linktype:
+        - '(?i)\bLinkType:\s*(?P<linktype>[^,\]]+)'
+        - '(?i)\bLinkType[=: ]+(?P<linktype>[A-Za-z0-9_ .-]+)'
+  optical_fault:
+    core_fields:
+      - interface
+    patterns:
+      interface:
+        - '(?i)\bInterface[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+        - '(?i)\bifName[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+        - '(?i)\bport[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+      error_code:
+        - '(?i)\bErrorCode[:= ]+(?P<error_code>[A-Za-z0-9._-]+)'
+        - '(?i)\berror code\s+(?P<error_code>[A-Za-z0-9._-]+)'
+      reason:
+        - '(?i)\bReason[:= ]+(?P<reason>[^,;.)]+)'
+        - '(?i)\breason is\s+(?P<reason>[^,;.)]+)'
+  radius:
+    core_fields:
+      - server_ip
+    patterns:
+      radius_server:
+        - '(?i)\bRADIUS\s+(?:authentication|accounting)?\s*server\s+(?P<radius_server>[A-Za-z0-9._:-]+)'
+        - '(?i)\bserver\s+(?P<radius_server>[A-Za-z0-9._:-]+)'
+      server_ip:
+        - '(?i)\bserver(?:-ip| ip)?[=: ]+(?P<server_ip>(?:\d{1,3}\.){3}\d{1,3})'
+        - '(?i)\b(?P<server_ip>(?:\d{1,3}\.){3}\d{1,3})\b'
+      port:
+        - '(?i)\bport[=: ]+(?P<port>\d+)'
+  qos_congestion:
+    core_fields:
+      - slot
+    patterns:
+      slot:
+        - '(?i)-Slot=(?P<slot>[A-Za-z0-9/._-]+)'
+        - '(?i)\bSlot[=: ]+(?P<slot>[A-Za-z0-9/._-]+)'
+      queue_id:
+        - '(?i)CPU protocol queue\s+\((?P<queue_id>\d+)\)'
+      interface:
+        - '(?i)\bInterface[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+        - '(?i)\bPort[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+      reason:
+        - '(?i)(?P<reason>The CPU protocol queue\s+\(\d+\)\s+is congested)'
+        - '(?i)\bReason[:= ]+(?P<reason>[^,;.)]+)'
+  interface_link:
+    core_fields:
+      - interface
+      - new_state
+    patterns:
+      interface:
+        - '(?i)\bInterface[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+        - '(?i)\bifName[:= ]+(?P<interface>[A-Za-z0-9/._:-]+)'
+        - '(?i)\b(?:GigabitEthernet|Ten-GigabitEthernet|HundredGigE|Route-Aggregation|RAGG)[A-Za-z0-9/._:-]*'
+      old_state:
+        - '(?i)\b(?:state|Sta):\s*(?P<old_state>[A-Z_]+)\s*->\s*(?P<new_state>[A-Z_]+)'
+        - '(?i)from\s+(?P<old_state>[A-Z_]+)\s+to\s+(?P<new_state>[A-Z_]+)'
+      new_state:
+        - '(?i)changed\s+to\s+(?P<new_state>up|down)'
+        - '(?i)\b(?:state|Sta):\s*(?P<old_state>[A-Z_]+)\s*->\s*(?P<new_state>[A-Z_]+)'
+        - '(?i)from\s+(?P<old_state>[A-Z_]+)\s+to\s+(?P<new_state>[A-Z_]+)'
+  device_fault:
+    core_fields:
+      - reason
+    patterns:
+      slot:
+        - '(?i)\bSlot[=: ]+(?P<slot>[A-Za-z0-9/._-]+)'
+      reason:
+        - '(?i)\bReason[:= ]+(?P<reason>[^,;.)]+)'
+        - '(?i)\bfault(?: reason)?[:= ]+(?P<reason>[^,;.)]+)'
+  shell_security:
+    core_fields:
+      - username
+    patterns:
+      username:
+        - '(?i)\buser(?:name)?[=: ]+(?P<username>[A-Za-z0-9._@:-]+)'
+      command:
+        - '(?i)\bcommand[:= ]+(?P<command>[^,;]+)'

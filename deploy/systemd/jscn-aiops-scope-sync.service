@@ -1,0 +1,14 @@
+[Unit]
+Description=Refresh AIOps platform device scope projection
+After=network-online.target mysql.service
+
+[Service]
+Type=oneshot
+User=yvesyuan
+Group=yvesyuan
+WorkingDirectory=/opt/jscn-aiops
+EnvironmentFile=/etc/jscn-aiops/app.env
+ExecStart=/opt/jscn-aiops/.venv/bin/python scripts/sync_platform_device_scope.py --env-file /etc/jscn-aiops/app.env
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
