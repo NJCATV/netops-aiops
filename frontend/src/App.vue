@@ -2,11 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import HomeDashboard from "./components/HomeDashboard.vue";
 
-const platformEmbedded = import.meta.env.VITE_PLATFORM_EMBEDDED === "true";
-const apiBase = import.meta.env.VITE_API_BASE || "/api";
-const platformHome = "/2026/#/aiops/admin";
-const brandLogo = `${import.meta.env.BASE_URL}jscn-logo.png`;
-const platformTokenKey = "netops2026_token";
+const apiBase = "/api";
 const navGroups = [
   { title: "系统首页", items: [{ key: "home", label: "智能态势首页" }] },
   { title: "城域网智能运维", items: [{ key: "ai", label: "运维看板" }, { key: "events", label: "实时 Events" }, { key: "syslog", label: "实时 Syslog" }, { key: "trap", label: "SNMP Trap" }, { key: "history", label: "AI 分析历史" }, { key: "aiRules", label: "AI 分析规则" }, { key: "tasks", label: "定时分析任务" }] },
@@ -39,6 +35,7 @@ const aiTabs = [
 
 const authChecked = ref(false);
 const user = ref(null);
+const authForm = ref({ username: "", password: "" });
 const view = ref("home");
 const loading = ref(false);
 const error = ref("");
@@ -1046,28 +1043,13 @@ function countMissing(keyword) {
 
 async function request(path, options = {}) {
   const separator = path.includes("?") ? "&" : "?";
-  const headers = new Headers(options.headers || {});
-  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  headers.set("Cache-Control", "no-cache");
-  const platformToken = platformEmbedded ? localStorage.getItem(platformTokenKey) : "";
-  if (platformToken) headers.set("Authorization", `Bearer ${platformToken}`);
   const response = await fetch(`${apiBase}${path}${separator}_ts=${Date.now()}`, {
-    ...options,
     credentials: "include",
     cache: "no-store",
-    headers,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", ...(options.headers || {}) },
+    ...options,
   });
   const payload = await parseApiPayload(response);
-  return normalizeApiPayload(payload, response);
-}
-
-function normalizeApiPayload(payload, response) {
-  if (platformEmbedded && typeof payload?.code === "number") {
-    if (!response.ok || payload.code !== 0) throw new Error(payload.message || `HTTP ${response.status}`);
-    return payload.data ?? {};
-  }
   if (!response.ok) throw new Error(payload?.error?.message || payload?.error || `HTTP ${response.status}`);
   return payload;
 }
@@ -1113,11 +1095,15 @@ async function loadMe() {
   }
 }
 
+async function submitAuth() {
+  await guarded(async () => {
+    const body = { username: authForm.value.username, password: authForm.value.password };
+    user.value = (await request("/auth/login", { method: "POST", body: JSON.stringify(body) })).user;
+    await refreshCurrent();
+  });
+}
+
 async function logout() {
-  if (platformEmbedded) {
-    window.location.assign(platformHome);
-    return;
-  }
   await request("/auth/logout", { method: "POST", body: "{}" });
   user.value = null;
 }
@@ -1629,11 +1615,9 @@ async function uploadFaultKb(type) {
     form.append("rebuild_aggregates", String(importForm.rebuild_aggregates));
     form.append("drop_noise", String(importForm.drop_noise));
     files.forEach((file) => form.append("files", file, file.name));
-    const headers = new Headers();
-    const platformToken = platformEmbedded ? localStorage.getItem(platformTokenKey) : "";
-    if (platformToken) headers.set("Authorization", `Bearer ${platformToken}`);
-    const response = await fetch(`${apiBase}/fault-kb/import/upload`, { method: "POST", body: form, credentials: "include", headers });
-    const payload = normalizeApiPayload(await parseApiPayload(response), response);
+    const response = await fetch(`${apiBase}/fault-kb/import/upload`, { method: "POST", body: form, credentials: "include" });
+    const payload = await parseApiPayload(response);
+    if (!response.ok) throw new Error(payload?.error?.message || payload?.error || `HTTP ${response.status}`);
     payload.category = type;
     kbImportResult.value = payload;
     await loadFaultKb();
@@ -2174,15 +2158,19 @@ onBeforeUnmount(() => {
     <section class="auth-panel">
       <div class="brand-mark">AI</div>
       <h1>JSCN AIOps</h1>
-      <p>旧版本地登录已移除，请从南京安播智维平台的“AIOps 系统管理”进入。</p>
-      <a class="primary" :href="platformHome">返回统一平台</a>
+      <p>面向实时事件、Trap 拓扑关联与 AI 故障研判的运维分析界面。</p>
+      <form @submit.prevent="submitAuth">
+        <label>用户名<input v-model="authForm.username" autocomplete="username" /></label>
+        <label>密码<input v-model="authForm.password" type="password" autocomplete="current-password" /></label>
+        <button class="primary" type="submit">登录</button>
+      </form>
       <p v-if="error" class="error">{{ error }}</p>
     </section>
   </main>
 
   <div v-else class="shell">
     <aside class="sidebar">
-      <div class="brand cable-brand"><img :src="brandLogo" alt="江苏有线 JSCN" /></div>
+      <div class="brand cable-brand"><img src="/jscn-logo.png" alt="江苏有线 JSCN" /></div>
       <div class="brand aiops-brand"><span>AI</span><strong>AIOps</strong><small>智能运维分析</small></div>
       <nav>
         <section v-for="group in navGroups" :key="group.title" class="nav-group">

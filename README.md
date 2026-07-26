@@ -1,9 +1,6 @@
-# JSCN AIOps
+# JSCN AIOps（`netops-aiops`）
 
-> 当前模块架构、数据库、端口限制和 Fail2ban/防火墙基线见
-> [`docs/module-contract.md`](docs/module-contract.md)。用户统一从 `233:5772` 网管入口访问，20 不作为独立用户入口。
-
-JSCN AIOps ingests Syslog and SNMP Trap data, enriches H3C Trap events with MIB and topology context, aggregates operational signals into `alarm_events`, and exposes a Web management console for realtime review and AI-assisted triage.
+本仓库承载 20 上的 AIOps 数据面：Syslog/SNMP Trap 接入、事件聚合、MIB 与拓扑富化、AI 分析、知识库、调度和 ELK。用户不直接访问 20，而是统一从 233 的网管入口访问；模块架构、数据库、端口边界和端口守卫见 [`docs/module-contract.md`](docs/module-contract.md)。
 
 ## Services
 
@@ -26,21 +23,14 @@ Core services:
 - `aiops-qq-adapter`: optional NapCat/OneBot adapter for using the fault KB assistant in allowlisted QQ groups.
 - `aiops-web`: Nginx-hosted Vue UI with `/api` reverse proxy to `aiops-api`.
 
-## Web Console
+## 用户入口与安全边界
 
-Default Web port:
+- 用户入口：浏览器仅通过 `https://anbo.njcatv.net:5772/` 的平台菜单和 `/api/netops2026/aiops/*` BFF 调用访问 AIOps。
+- 20 的 `5772` 仅绑定 `127.0.0.1`，只用于本机健康检查与回滚；不能作为用户入口。
+- `18080`（BFF API）和 `18190`（基础设施探针）仅允许 233 与本机；`13306`（MySQL）和 `5601`（Kibana）仅允许本机及 `172.31.0.0/16`；`9200`（Elasticsearch）仅允许本机与 Docker bridge。
+- 端口收敛由 `netops-aiops-port-guard.service` 的 `INPUT` 与 Docker `DOCKER-USER` 规则共同执行，UFW 未启用不表示服务裸露。
 
-```text
-生产用户从南京安播智维平台的“系统管理 → AIOps 系统管理 → 旧版入口”进入：
-
-```text
-https://172.31.1.233:5772/2026/legacy-aiops/
-```
-
-该页面使用网管 JWT，经 `/api/netops2026/aiops/*` BFF 访问 AIOps。AIOps 本地注册、密码登录和 Session 兜底已移除；20 服务器的 5772 只绑定 `127.0.0.1`，不得作为用户入口。
-```
-
-The Web console supports login/register, realtime Syslog, Trap, alarm event review, manual AI analysis, AI history and findings, operator feedback, and scheduled AI task configuration.
+Web 控制台支持实时 Syslog、Trap、告警事件、人工 AI 分析、历史报告、操作反馈和计划任务；本地注册、密码登录和 Session 兜底不作为生产入口。
 
 ## Common Checks
 

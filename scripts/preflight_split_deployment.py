@@ -37,37 +37,36 @@ def app_checks() -> list[dict]:
     checks: list[dict] = []
     secret = os.getenv("AIOPS_INTERNAL_SHARED_SECRET", "")
     checks.append({"name": "shared_secret", "ok": len(secret) >= 64, "detail": "configured" if secret else "missing"})
+    checks.append({"name": "local_auth_disabled", "ok": os.getenv("AIOPS_LOCAL_AUTH_ENABLED", "").lower() == "false"})
     database_url = os.getenv("DATABASE_URL", "")
-    try:
-        if database_url:
+    if not database_url:
+        checks.append({"name": "database", "ok": False, "detail": "DATABASE_URL missing"})
+    else:
+        try:
             engine = create_engine(database_url, pool_pre_ping=True, future=True)
-        else:
-            from app.db import create_db_engine
-
-            engine = create_db_engine()
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-        inspector = inspect(engine)
-        required = {
-            "users": {"identity_source", "external_subject", "external_org_id"},
-            "ai_analysis_runs": {"scope_subject", "scope_org_id", "scope_regions_json"},
-            "report_tasks": {"scope_subject", "scope_org_id", "scope_regions_json"},
-            "platform_identity_audit": set(),
-            "platform_device_scope": set(),
-        }
-        missing = {}
-        tables = set(inspector.get_table_names())
-        for table, columns in required.items():
-            if table not in tables:
-                missing[table] = ["<table>"]
-                continue
-            actual = {row["name"] for row in inspector.get_columns(table)}
-            absent = sorted(columns - actual)
-            if absent:
-                missing[table] = absent
-        checks.append({"name": "database_schema", "ok": not missing, "missing": missing})
-    except Exception as exc:
-        checks.append({"name": "database", "ok": False, "detail": str(exc)})
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            inspector = inspect(engine)
+            required = {
+                "users": {"identity_source", "external_subject", "external_org_id"},
+                "ai_analysis_runs": {"scope_subject", "scope_org_id", "scope_regions_json"},
+                "report_tasks": {"scope_subject", "scope_org_id", "scope_regions_json"},
+                "platform_identity_audit": set(),
+                "platform_device_scope": set(),
+            }
+            missing = {}
+            tables = set(inspector.get_table_names())
+            for table, columns in required.items():
+                if table not in tables:
+                    missing[table] = ["<table>"]
+                    continue
+                actual = {row["name"] for row in inspector.get_columns(table)}
+                absent = sorted(columns - actual)
+                if absent:
+                    missing[table] = absent
+            checks.append({"name": "database_schema", "ok": not missing, "missing": missing})
+        except Exception as exc:
+            checks.append({"name": "database", "ok": False, "detail": str(exc)})
     es = os.getenv("ELASTICSEARCH_URL", "http://172.25.60.20:9200").rstrip("/")
     checks.append({"name": "elasticsearch", **http_check(es + "/_cluster/health")})
     qq_url = os.getenv("QQ_ADAPTER_INTERNAL_URL", "").rstrip("/")

@@ -1,19 +1,6 @@
 # Deployment
 
-本目录保存 JSCN AIOps 的部署文件。统一网管接入后的目标形态采用控制面/数据面拆分：
-
-| 项目 | 生产约束 |
-| --- | --- |
-| 用户入口 | `233:5772/2026/legacy-aiops/`，由统一平台菜单打开 |
-| API | 浏览器只调用 `233:5772/api/netops2026/aiops/*` |
-| 本地鉴权 | 注册、密码登录、Session 兜底全部禁用 |
-| 20 旧 Web | `AIOPS_WEB_BIND=127.0.0.1`，仅供本机健康检查和回滚 |
-| 身份 | 233 BFF 使用 HMAC 签名的平台身份；内部服务使用共享密钥身份 |
-
-- `docker-compose.20-data-plane.yml`：20 上的 ELK、事件聚合和 QQ 适配器。
-- `systemd/`：233 上的 AIOps API 与调度器。
-- `split-deployment-runbook.md`：MySQL 合并、灰度、验证和回滚步骤。
-- 原 `docker-compose.yml` 仅保留为单机历史部署与紧急回滚参考，不再作为目标态。
+本目录保存 JSCN AIOps 的 Docker Compose 部署文件。
 
 ## Current Scope
 

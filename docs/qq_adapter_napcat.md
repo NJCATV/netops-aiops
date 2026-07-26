@@ -15,11 +15,11 @@ username: qq-bot
 role: viewer
 ```
 
-QQ Adapter 只允许使用平台服务身份，不再支持 AIOps 本地账号密码：
+将账号密码写入 `deploy/.env`：
 
 ```env
-AIOPS_INTERNAL_SHARED_SECRET=与统一平台 BFF 相同的长随机密钥
-AIOPS_BOT_SERVICE_SUBJECT=service:qq-adapter
+AIOPS_BOT_USERNAME=qq-bot
+AIOPS_BOT_PASSWORD=替换为实际密码
 ```
 
 ## 2. 配置 QQ 适配器

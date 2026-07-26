@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+import http.cookiejar
 import base64
-import hashlib
-import hmac
 import json
 import logging
 import os
 import queue
 import re
-import secrets
 import smtplib
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import deque
@@ -69,6 +68,8 @@ class AdapterConfig:
     onebot_token_in_query: bool
     event_token: str
     aiops_api_base: str
+    aiops_username: str
+    aiops_password: str
     allowed_groups: set[str]
     trigger_prefixes: list[str]
     bot_self_id: str
@@ -100,9 +101,6 @@ class AdapterConfig:
     napcat_webui_base: str = "http://127.0.0.1:6099"
     napcat_webui_public_url: str = ""
     napcat_webui_token: str = ""
-    aiops_internal_shared_secret: str = ""
-    aiops_service_subject: str = "service:qq-adapter"
-    internal_admin_token: str = ""
 
     @classmethod
     def from_env(cls) -> "AdapterConfig":
@@ -112,6 +110,8 @@ class AdapterConfig:
             onebot_token_in_query=str(os.getenv("ONEBOT_TOKEN_IN_QUERY", "false")).lower() in {"1", "true", "yes", "on"},
             event_token=os.getenv("QQ_ADAPTER_EVENT_TOKEN", ""),
             aiops_api_base=os.getenv("AIOPS_API_BASE", "http://127.0.0.1:8080").rstrip("/"),
+            aiops_username=os.getenv("AIOPS_BOT_USERNAME", ""),
+            aiops_password=os.getenv("AIOPS_BOT_PASSWORD", ""),
             allowed_groups=csv_values(os.getenv("QQ_GROUP_ALLOWLIST")),
             trigger_prefixes=trigger_prefixes_from_env(os.getenv("QQ_TRIGGER_PREFIX")),
             bot_self_id=str(os.getenv("QQ_BOT_SELF_ID", "")).strip(),
@@ -143,9 +143,6 @@ class AdapterConfig:
             napcat_webui_base=os.getenv("NAPCAT_WEBUI_BASE", "http://127.0.0.1:6099").rstrip("/"),
             napcat_webui_public_url=os.getenv("NAPCAT_WEBUI_PUBLIC_URL", "").rstrip("/"),
             napcat_webui_token=os.getenv("NAPCAT_WEBUI_TOKEN", ""),
-            aiops_internal_shared_secret=os.getenv("AIOPS_INTERNAL_SHARED_SECRET", ""),
-            aiops_service_subject=os.getenv("AIOPS_BOT_SERVICE_SUBJECT", "service:qq-adapter"),
-            internal_admin_token=os.getenv("QQ_ADAPTER_ADMIN_TOKEN", ""),
         )
 
 
@@ -172,63 +169,37 @@ class JsonHttpClient:
 class AiopsSessionClient:
     def __init__(self, config: AdapterConfig):
         self.config = config
-        self.opener = urllib.request.build_opener()
+        self.cookie_jar = http.cookiejar.CookieJar()
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookie_jar))
         self.lock = threading.Lock()
 
     def post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        if not self.config.aiops_internal_shared_secret:
-            raise RuntimeError("AIOPS_INTERNAL_SHARED_SECRET is required")
+        if not self.config.aiops_username or not self.config.aiops_password:
+            raise RuntimeError("AIOPS_BOT_USERNAME and AIOPS_BOT_PASSWORD are required")
         with self.lock:
-            return self._post(path, payload, signed=True)
+            return self._post_with_login(path, payload)
 
-    def _platform_headers(self, path: str, data: bytes) -> dict[str, str]:
-        identity = {
-            "subject": self.config.aiops_service_subject,
-            "username": "qq-bot",
-            "display_name": "QQ 运维机器人",
-            "role_code": "normal_user",
-            "user_type": "service",
-            "org_id": None,
-            "org_name": "QQ 服务账号",
-            "regions": None,
-            "permissions": ["netops.ai_chat.use"],
-        }
-        identity_json = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        timestamp = str(int(time.time()))
-        nonce = secrets.token_hex(12)
-        canonical_path = path[4:] if path.startswith("/api/") else path
-        canonical = "\n".join(
-            [
-                timestamp,
-                nonce,
-                "POST",
-                canonical_path,
-                hashlib.sha256(data).hexdigest(),
-                hashlib.sha256(identity_json.encode("utf-8")).hexdigest(),
-            ]
+    def _post_with_login(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return self._post(path, payload)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 401:
+                raise
+        self._login()
+        return self._post(path, payload)
+
+    def _login(self) -> None:
+        self._post(
+            "/api/auth/login",
+            {"username": self.config.aiops_username, "password": self.config.aiops_password},
         )
-        signature = hmac.new(
-            self.config.aiops_internal_shared_secret.encode("utf-8"),
-            canonical.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        return {
-            "X-AIOps-Identity": base64.urlsafe_b64encode(identity_json.encode("utf-8")).decode("ascii"),
-            "X-AIOps-Timestamp": timestamp,
-            "X-AIOps-Nonce": nonce,
-            "X-AIOps-Signature": signature,
-            "X-Request-ID": secrets.token_hex(16),
-        }
 
-    def _post(self, path: str, payload: dict[str, Any], signed: bool = False) -> dict[str, Any]:
+    def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        if signed:
-            headers.update(self._platform_headers(path, data))
         req = urllib.request.Request(
             self.config.aiops_api_base + path,
             data=data,
-            headers=headers,
+            headers={"Content-Type": "application/json"},
             method="POST",
         )
         with self.opener.open(req, timeout=self.config.reply_timeout_seconds) as response:
@@ -341,9 +312,9 @@ class OfflineEmailNotifier:
         image.save(buffer, format="PNG")
         return buffer.getvalue()
 
-    def send_offline(self, status: dict[str, Any], qrcode_text: str, login_url: str) -> bool:
+    def send_offline(self, status: dict[str, Any], qrcode_text: str, login_url: str) -> None:
         if not self.enabled():
-            return False
+            return
         message = EmailMessage()
         message["Subject"] = "AIOps QQ机器人离线告警"
         message["From"] = self.config.mail_from
@@ -374,7 +345,6 @@ class OfflineEmailNotifier:
                 if self.config.smtp_user:
                     smtp.login(self.config.smtp_user, self.config.smtp_password)
                 smtp.send_message(message)
-        return True
 
 
 class BotStatusMonitor:
@@ -439,11 +409,9 @@ class BotStatusMonitor:
                 self.audit.write("qq_bot_online_recovered", None, status="online")
             self.last_online = True
             return status
-        is_transition = self.last_online is not False
-        should_notify = is_transition or time.time() - self.last_email_at >= self.config.bot_offline_email_cooldown_seconds
+        should_notify = self.last_online is not False or time.time() - self.last_email_at >= self.config.bot_offline_email_cooldown_seconds
         self.last_online = False
-        if is_transition:
-            self.audit.write("qq_bot_offline", None, status="offline", error=status.get("error", ""))
+        self.audit.write("qq_bot_offline", None, status="offline", error=status.get("error", ""))
         if should_notify:
             self._send_offline_email(status)
         return status
@@ -464,9 +432,9 @@ class BotStatusMonitor:
                 qrcode_text = self.napcat.get_login_qrcode()
             except Exception as exc:
                 status["qrcode_error"] = compact_question(mask_sensitive_text(str(exc)), 300)
-            sent = self.notifier.send_offline(status, qrcode_text, self.napcat.login_url())
+            self.notifier.send_offline(status, qrcode_text, self.napcat.login_url())
             self.last_email_at = time.time()
-            self.audit.write("qq_bot_offline_email_sent" if sent else "qq_bot_offline_email_skipped", None, status="sent" if sent else "disabled")
+            self.audit.write("qq_bot_offline_email_sent", None, status="sent")
         except Exception as exc:
             self.audit.write("qq_bot_offline_email_failed", None, status="failed", error=exc)
             LOGGER.exception("Failed to send QQ bot offline email")
@@ -901,45 +869,6 @@ def create_adapter_app(config: AdapterConfig | None = None) -> Flask:
     @app.get("/bot/status")
     def bot_status():
         return jsonify(monitor.check_once())
-
-    def internal_authorized() -> bool:
-        supplied = request.headers.get("Authorization", "")
-        expected = f"Bearer {config.internal_admin_token}" if config.internal_admin_token else ""
-        return bool(expected) and hmac.compare_digest(supplied, expected)
-
-    @app.get("/internal/status")
-    def internal_status():
-        if not internal_authorized():
-            return jsonify({"ok": False, "error": "unauthorized"}), 401
-        return jsonify({"ok": True, "item": monitor.check_once()})
-
-    @app.get("/internal/audit")
-    def internal_audit():
-        if not internal_authorized():
-            return jsonify({"ok": False, "error": "unauthorized"}), 401
-        try:
-            limit = max(1, min(int(request.args.get("limit", "100")), 500))
-        except ValueError:
-            limit = 100
-        records: list[dict[str, Any]] = []
-        try:
-            with open(config.audit_log_path, "rb") as handle:
-                handle.seek(0, os.SEEK_END)
-                end = handle.tell()
-                handle.seek(max(0, end - 2 * 1024 * 1024))
-                raw = handle.read().decode("utf-8", errors="replace")
-            for line in reversed(raw.splitlines()):
-                try:
-                    item = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(item, dict):
-                    records.append(item)
-                if len(records) >= limit:
-                    break
-        except OSError:
-            records = []
-        return jsonify({"ok": True, "items": records})
 
     @app.post("/onebot/event")
     def onebot_event():
