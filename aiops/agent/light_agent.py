@@ -539,9 +539,44 @@ def ensure_output_shape(result: dict, summary: dict, model: str, tool_call_count
     return result
 
 
+def validate_agent_output(result: Any) -> Optional[str]:
+    """Reject syntactically valid but semantically empty model replies."""
+    if not isinstance(result, dict):
+        return "模型返回不是 JSON 对象"
+    overall = result.get("overall_status")
+    if not isinstance(overall, dict):
+        return "模型输出缺少 overall_status"
+    if not str(overall.get("level") or "").strip():
+        return "模型输出的 overall_status.level 为空"
+    if not str(overall.get("title") or "").strip():
+        return "模型输出的 overall_status.title 为空"
+    if not str(overall.get("summary") or "").strip():
+        return "模型输出的 overall_status.summary 为空"
+    return None
+
+
+def reject_invalid_agent_output(content: str, reason: str, runtime: dict, start_ms: int, trajectory_dir: pathlib.Path) -> dict:
+    """Persist an invalid output as failed instead of manufacturing an unknown success."""
+    raw_path = save_raw_debug(content, str(trajectory_dir))
+    write_text(trajectory_dir / "final_response_raw.txt", content)
+    runtime["end_time"] = iso_z(utc_now())
+    runtime["duration_ms"] = monotonic_ms() - start_ms
+    result = {
+        "ok": False,
+        "error": "invalid_agent_output",
+        "message": reason,
+        "raw_content_path": raw_path,
+        "agent_runtime": runtime,
+    }
+    write_json(trajectory_dir / "final_result.json", result)
+    write_json(trajectory_dir / "runtime_metrics.json", runtime)
+    LOGGER.error("Light agent returned invalid final output: %s", reason)
+    return result
+
+
 def force_final_messages(messages: List[dict]) -> List[dict]:
     final_messages = list(messages)
-    final_messages.append({"role": "user", "content": "工具调用轮次已达到上限。请基于已有 current_window_summary 和 tool_result，立即只输出最终合法 JSON。" + final_json_schema_text()})
+    final_messages.append({"role": "user", "content": "工具额度已用尽，不再提供任何工具。请基于已有 current_window_summary 和全部 tool_result 立即输出完整最终 JSON；不要再请求查询，不得返回 {}，即使证据不足也必须在 overall_status 和 insufficient/data_quality 中说明。" + final_json_schema_text()})
     return final_messages
 
 
@@ -673,6 +708,8 @@ def run_light_agent(summary: dict, *, max_tool_rounds: int = 4, model: Optional[
                     write_json(trajectory_dir / ("tool_result_round_%s.json" % tool_call_count), {"arguments": arguments, "result": tool_result, "metric": tool_metric})
                 tool_results.append((call, tool_result))
             append_standard_tool_messages(messages, assistant, tool_results)
+            if tool_call_count >= max_tool_rounds:
+                messages = force_final_messages(messages)
             continue
 
         pseudo = parse_pseudo_tool_call(content) if allow_tools else None
@@ -711,6 +748,9 @@ def run_light_agent(summary: dict, *, max_tool_rounds: int = 4, model: Optional[
 
         parsed = parse_agent_json(content)
         if parsed is not None:
+            validation_error = validate_agent_output(parsed)
+            if validation_error:
+                return reject_invalid_agent_output(content, validation_error, runtime, start_ms, trajectory_dir)
             LOGGER.info("Light agent final JSON parsed successfully: tool_call_count=%s", tool_call_count)
             write_text(trajectory_dir / "final_response_raw.txt", content)
             parsed = ensure_output_shape(parsed, summary, selected_model, tool_call_count)
@@ -779,6 +819,9 @@ def run_light_agent(summary: dict, *, max_tool_rounds: int = 4, model: Optional[
     if parsed is None:
         parsed, content = repair_agent_json(content, forced_messages, call_model, api_key, base_url, timeout, temperature)
     if parsed is not None:
+        validation_error = validate_agent_output(parsed)
+        if validation_error:
+            return reject_invalid_agent_output(content, validation_error, runtime, start_ms, trajectory_dir)
         LOGGER.info("Light agent final JSON parsed after force/repair: tool_call_count=%s", tool_call_count)
         write_text(trajectory_dir / "final_response_raw.txt", content)
         parsed = ensure_output_shape(parsed, summary, selected_model, tool_call_count)
